@@ -1,19 +1,19 @@
 #include <iostream>
 #include <functional>
 #include <vector>
+#include <cassert>
 
 class Connection;
 
 class Object
 {
 public:
-    virtual ~Object()
-    {
-
-    }
+    virtual ~Object();
 
 private:
     friend class Connection;
+
+private:
     std::vector<Connection*> connections_;
 };
 
@@ -40,50 +40,64 @@ public:
 
     bool isValid() const { return to_ != nullptr; }
 
+private:
+    friend class Object;
+
 protected:
     Object* to_{};
 };
 
-template <class To, class Ret, class... Types>
+template <class To, class... Types>
 class ConnectionTemplate : public Connection
 {
 public:
-    ConnectionTemplate(To* obj, Ret (To::*func)(Types...)) : Connection(obj), func_(func)
+    ConnectionTemplate(To* obj, void (To::*func)(Types...)) : Connection(obj), func_(func)
     {
 
     }
 
-    Ret operator()(Types... types)
+    void operator()(Types... types)
     {
+        assert(to_ && "Object was deleted!");
+
         To& obj = *get_to();
-        return (obj.*func_)(types...);
+        (obj.*func_)(types...);
     }
 
 private:
     inline To* get_to() { return static_cast<To*>(to_); }
 
 private:
-    Ret (To::*func_)(Types...) = nullptr;
+    void (To::*func_)(Types...) = nullptr;
 };
 
 
+Object::~Object()
+{
+    for (Connection *c : connections_)
+    {
+        c->to_ = nullptr;
+    }
+}
 
 struct S : public Object
 {
-    int fun()
+    void fun(int f)
     {
-        // std::cout << f << std::endl;
-        return 123;
+        std::cout << f << std::endl;
+        // return 123;
     }
 };
 
 
 int main()
 {
-    S s;
-    ConnectionTemplate con(&s, &S::fun);
+    auto s = new S();
 
-    con();
+    ConnectionTemplate con(s, &S::fun);
+    con(1);
+    delete s;
+    con(2);
 
     std::cout << "fsf";
 }
