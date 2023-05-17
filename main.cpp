@@ -94,10 +94,7 @@ public:
 		: f_{std::make_unique<MemberFuncBased<Obj>>(obj, func)}
 	{}
 
-	void operator()(Args... args)
-	{
-		f_->operator()(std::forward<Args>(args)...);
-	}
+	void operator()(Args... args) { f_->operator()(std::forward<Args>(args)...); }
 
 protected:
 	class Base
@@ -111,14 +108,11 @@ protected:
 	class FunctorBased : public Base
 	{
 	public:
-		explicit FunctorBased(F&& functor) : functor_(std::forward<F>(functor))
-		{
-		}
+		explicit FunctorBased(F &&functor)
+			: functor_(std::forward<F>(functor))
+		{}
 
-		void operator()(Args... args) override
-		{
-			functor_(std::forward<Args>(args)...);
-		}
+		void operator()(Args... args) override { functor_(std::forward<Args>(args)...); }
 
 	private:
 		F functor_;
@@ -136,10 +130,7 @@ protected:
 			assert(func);
 		}
 
-		void operator()(Args... args) override
-		{
-			(obj_->*func_)(std::forward<Args>(args)...);
-		}
+		void operator()(Args... args) override { (obj_->*func_)(std::forward<Args>(args)...); }
 
 	private:
 		Obj *obj_ = nullptr;
