@@ -102,10 +102,8 @@ int main()
 			std::cout << a+1 << "! ";
 		};
 		Callable<int> c(lam);
-		signal.add(c);
-		signal.add(c);
-		signal.add(c);
-		signal.add(std::move(c));
+		const int id = signal.add(std::move(c));
+		signal.remove(id);
 	}
 
 	signal(5);

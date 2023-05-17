@@ -3,6 +3,7 @@
 #include "Callable.h"
 
 #include <vector>
+#include <unordered_map>
 
 template<class... Args>
 class Signal
@@ -12,29 +13,47 @@ public:
 
 	void operator()(Args... args)
 	{
-		for (CallableType &c : callbacks_)
+		for (auto &c : callbacks_)
 		{
 			// TODO std forward causes use after move?
 			// c(std::forward<Args>(args)...);
-			c(args...);
+			c.second(args...);
 		}
 	}
 
 	void operator()(Args... args) const
 	{
-		for (const CallableType &c : callbacks_)
+		for (const auto &c : callbacks_)
 		{
 			// TODO std forward causes use after move?
 			// c(std::forward<Args>(args)...);
-			c(args...);
+			c.second(args...);
 		}
 	}
 
-	void add(CallableType callback)
+	int add(CallableType callback)
 	{
-		callbacks_.emplace_back(std::move(callback));
+		const int id = generate_id();
+		callbacks_.emplace(std::make_pair(id, std::move(callback)));
+		return id;
+	}
+
+	void remove(int id)
+	{
+		callbacks_.erase(id);
 	}
 
 private:
-	std::vector<CallableType> callbacks_;
+	int generate_id() const
+	{
+		int id = 0;
+		while (callbacks_.find(id) != callbacks_.end())
+		{
+			++id;
+		}
+		return id;
+	}
+
+private:
+	std::unordered_map<int, CallableType> callbacks_;
 };
