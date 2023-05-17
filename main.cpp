@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Callable.h"
+#include "Signal.h"
 
 class Connection;
 
@@ -54,7 +55,7 @@ template<class To, class... Types>
 class ConnectionTemplate : public Connection
 {
 public:
-	ConnectionTemplate(To *obj, void (To::*func)(Types...))
+	ConnectionTemplate(To *obj, Callable<Types...> func)
 		: Connection(obj)
 		, func_(func)
 	{}
@@ -62,16 +63,11 @@ public:
 	void operator()(Types... types)
 	{
 		assert(to_ && "Object was deleted!");
-
-		To &obj = *get_to();
-		(obj.*func_)(types...);
+		func_(std::forward<Types>(types)...);
 	}
 
 private:
-	inline To *get_to() { return static_cast<To *>(to_); }
-
-private:
-	void (To::*func_)(Types...) = nullptr;
+	Callable<Types...> func_;
 };
 
 
@@ -83,51 +79,27 @@ Object::~Object()
 	}
 }
 
-void some_func(int v)
-{
-	std::cout << "some_func " << v;
-}
+
+
+
 
 int main()
 {
-	{
-		Callable<int> c(&some_func);
-		c(555153);
-	}
+	Signal<int> signal;
 
 	{
-		auto lamb = [](int a) {
+		auto lam = [](int a) {
 			std::cout << a;
 		};
-		Callable<int> c(lamb);
-		c(123);
+		Callable<int> c(lam);
+//		signal.add(c);
 	}
 
 	{
-		auto lamb = []() {
-			std::cout << " ";
+		auto lam = [](int a) {
+			std::cout << a;
 		};
-		Callable<> c(lamb);
-		c();
-	}
-
-	{
-		struct Some
-		{
-			void fun(int v) { std::cout << "fun" << v; }
-		};
-		Some some;
-		Callable<int> c(&some, &Some::fun);
-		c(555);
-	}
-
-	{
-		struct Some
-		{
-			void fun(int v)  const { std::cout << "fun" << v; }
-		};
-		Some some;
-		Callable<int> c(&some, &Some::fun);
-		c(555);
+		Callable<int> c(lam);
+		signal.add(std::move(c));
 	}
 }

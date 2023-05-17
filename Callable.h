@@ -27,6 +27,34 @@ public:
 		: f_{std::make_unique<FunctorBased<F>>(std::forward<F>(functor))}
 	{}
 
+	Callable(const Callable &other)
+		: f_(other.f_->clone())
+	{}
+
+	Callable(Callable &&other) noexcept
+		: f_(std::move(other.f_))
+	{}
+
+	Callable &operator=(const Callable &other)
+	{
+		if (&other != this)
+		{
+			f_ = other.f_->clone();
+		}
+
+		return *this;
+	}
+
+	Callable &operator=(Callable &&other) noexcept
+	{
+		if (&other != this)
+		{
+			f_ = std::move(other.f_);
+		}
+
+		return *this;
+	}
+
 	void operator()(Args... args) { f_->operator()(std::forward<Args>(args)...); }
 
 protected:
@@ -35,6 +63,8 @@ protected:
 	public:
 		virtual ~Base() = default;
 		virtual void operator()(Args... args) = 0;
+
+		virtual std::unique_ptr<Base> clone() = 0;
 	};
 
 	class FunctionBased : public Base
@@ -47,6 +77,8 @@ protected:
 		}
 
 		void operator()(Args... args) override { (*func_)(std::forward<Args>(args)...); }
+
+		std::unique_ptr<Base> clone() override { return std::make_unique<FunctionBased>(func_); }
 
 	private:
 		void (*func_)(Args...) = nullptr;
@@ -65,6 +97,11 @@ protected:
 		}
 
 		void operator()(Args... args) override { (obj_->*func_)(std::forward<Args>(args)...); }
+
+		std::unique_ptr<Base> clone() override
+		{
+			return std::make_unique<MemberFunctionBased>(obj_, func_);
+		}
 
 	private:
 		Obj *obj_ = nullptr;
@@ -85,6 +122,11 @@ protected:
 
 		void operator()(Args... args) override { (obj_->*func_)(std::forward<Args>(args)...); }
 
+		std::unique_ptr<Base> clone() override
+		{
+			return std::make_unique<ConstMemberFunctionBased>(obj_, func_);
+		}
+
 	private:
 		const Obj *obj_ = nullptr;
 		void (Obj::*func_)(Args...) const = nullptr;
@@ -99,6 +141,8 @@ protected:
 		{}
 
 		void operator()(Args... args) override { functor_(std::forward<Args>(args)...); }
+
+		std::unique_ptr<Base> clone() override { return std::make_unique<FunctorBased>(functor_); }
 
 	private:
 		F functor_;
