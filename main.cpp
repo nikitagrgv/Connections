@@ -80,24 +80,104 @@ Object::~Object()
     }
 }
 
-struct S : public Object
+template<class... Args>
+class Callable
 {
-    void fun(int f)
-    {
-        std::cout << f << std::endl;
-        // return 123;
-    }
-};
+public:
+	template<class F>
+	explicit Callable(F &&functor)
+		: f_{std::make_unique<FunctorBased<F>>(std::forward<F>(functor))}
+	{}
 
+	template<class Obj>
+	explicit Callable(Obj *obj, void (Obj::*func)(Args...))
+		: f_{std::make_unique<MemberFuncBased<Obj>>(obj, func)}
+	{}
+
+	void operator()(Args... args)
+	{
+		f_->operator()(std::forward<Args>(args)...);
+	}
+
+protected:
+	class Base
+	{
+	public:
+		virtual ~Base() = default;
+		virtual void operator()(Args... args) = 0;
+	};
+
+	template<class F>
+	class FunctorBased : public Base
+	{
+	public:
+		explicit FunctorBased(F&& functor) : functor_(std::forward<F>(functor))
+		{
+		}
+
+		void operator()(Args... args) override
+		{
+			functor_(std::forward<Args>(args)...);
+		}
+
+	private:
+		F functor_;
+	};
+
+	template<class Obj>
+	class MemberFuncBased : public Base
+	{
+	public:
+		MemberFuncBased(Obj *obj, void (Obj::*func)(Args...))
+			: obj_(obj)
+			, func_(func)
+		{
+			assert(obj);
+			assert(func);
+		}
+
+		void operator()(Args... args) override
+		{
+			(obj_->*func_)(std::forward<Args>(args)...);
+		}
+
+	private:
+		Obj *obj_ = nullptr;
+		void (Obj::*func_)(Args...) = nullptr;
+	};
+
+private:
+	std::unique_ptr<Base> f_;
+};
 
 int main()
 {
-    auto s = new S();
+	{
+		auto lamb = [](int a) {
+			std::cout << a;
+		};
+		Callable<int> c(lamb);
+		c(123);
+	}
 
-    ConnectionTemplate con(s, &S::fun);
-    con(1);
-    delete s;
-    con(2);
+	{
+		auto lamb = []() {
+			std::cout << " ";
+		};
+		Callable<> c(lamb);
+		c();
+	}
 
-    std::cout << "fsf";
+	{
+		struct Some
+		{
+			void fun(int v)
+			{
+				std::cout << "fun" << v;
+			}
+		};
+		Some some;
+		Callable<int> c(&some, &Some::fun);
+		c(555);
+	}
 }
