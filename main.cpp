@@ -96,6 +96,12 @@ public:
 		: f_{std::make_unique<MemberFunctionBased<Obj>>(obj, func)}
 	{}
 
+	// Const member functions
+	template<class Obj>
+	explicit Callable(const Obj *obj, void (Obj::*func)(Args...) const)
+		: f_{std::make_unique<ConstMemberFunctionBased<Obj>>(obj, func)}
+	{}
+
 	// Functors
 	template<class F>
 	explicit Callable(F &&functor)
@@ -144,6 +150,25 @@ protected:
 	private:
 		Obj *obj_ = nullptr;
 		void (Obj::*func_)(Args...) = nullptr;
+	};
+
+	template<class Obj>
+	class ConstMemberFunctionBased : public Base
+	{
+	public:
+		ConstMemberFunctionBased(const Obj *obj, void (Obj::*func)(Args...) const)
+			: obj_(obj)
+			, func_(func)
+		{
+			assert(obj);
+			assert(func);
+		}
+
+		void operator()(Args... args) override { (obj_->*func_)(std::forward<Args>(args)...); }
+
+	private:
+		const Obj *obj_ = nullptr;
+		void (Obj::*func_)(Args...) const = nullptr;
 	};
 
 	template<class F>
@@ -196,6 +221,16 @@ int main()
 		struct Some
 		{
 			void fun(int v) { std::cout << "fun" << v; }
+		};
+		Some some;
+		Callable<int> c(&some, &Some::fun);
+		c(555);
+	}
+
+	{
+		struct Some
+		{
+			void fun(int v)  const { std::cout << "fun" << v; }
 		};
 		Some some;
 		Callable<int> c(&some, &Some::fun);
