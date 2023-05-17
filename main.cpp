@@ -89,17 +89,24 @@ int main()
 
 	{
 		auto lam = [](int a) {
-			std::cout << a;
+			std::cout << a << " ";
 		};
 		Callable<int> c(lam);
-//		signal.add(c);
+		signal.add(c);
+		signal.add(c);
+		signal.add(c);
 	}
 
 	{
 		auto lam = [](int a) {
-			std::cout << a;
+			std::cout << a+1 << "! ";
 		};
 		Callable<int> c(lam);
+		signal.add(c);
+		signal.add(c);
+		signal.add(c);
 		signal.add(std::move(c));
 	}
+
+	signal(5);
 }
