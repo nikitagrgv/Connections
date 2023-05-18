@@ -87,24 +87,49 @@ int main()
 {
 	Signal<int> signal;
 
-	{
-		auto lam = [](int a) {
-			std::cout << a << " ";
-		};
-		Callable<int> c(lam);
-		signal.add(c);
-		signal.add(c);
-		signal.add(c);
-	}
+    int id1 = signal.add(Callable<int>([](int){std::cout << 1;}));
+    int id2 = signal.add(Callable<int>([](int){std::cout << 2;}));
+    int id3 = signal.add(Callable<int>([](int){std::cout << 3;}));
+    int id4 = signal.add(Callable<int>([](int){std::cout << 4;}));
+    int id5 = signal.add(Callable<int>([](int){std::cout << 5;}));
+    int id6 = signal.add(Callable<int>([](int){std::cout << 6;}));
 
-	{
-		auto lam = [](int a) {
-			std::cout << a+1 << "! ";
-		};
-		Callable<int> c(lam);
-		const int id = signal.add(std::move(c));
-		signal.remove(id);
-	}
 
-	signal(5);
+    signal(0);
+    std::cout<<std::endl;
+
+    signal.remove(id3);
+
+    signal(0);
+    std::cout<<std::endl;
+
+    signal.remove(id5);
+
+    signal(0);
+    std::cout<<std::endl;
+
+    signal.remove(id2);
+
+    signal(0);
+    std::cout<<std::endl;
+	// {
+	// 	auto lam = [](int a) {
+	// 		std::cout << a << " ";
+	// 	};
+	// 	Callable<int> c(lam);
+	// 	signal.add(c);
+	// 	signal.add(c);
+	// 	signal.add(c);
+	// }
+
+	// {
+	// 	auto lam = [](int a) {
+	// 		std::cout << a+1 << "! ";
+	// 	};
+	// 	Callable<int> c(lam);
+	// 	const int id = signal.add(std::move(c));
+	// 	signal.remove(id);
+	// }
+
+	// signal(5);
 }

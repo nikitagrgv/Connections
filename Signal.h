@@ -2,8 +2,9 @@
 
 #include "Callable.h"
 
-#include <vector>
+#include <algorithm>
 #include <unordered_map>
+#include <vector>
 
 template<class... Args>
 class Signal
@@ -13,41 +14,58 @@ public:
 
 	void operator()(Args... args)
 	{
-		for (auto &c : callbacks_)
+		for (CallableType &c : callbacks_)
 		{
-			// TODO std forward causes use after move?
-			// c(std::forward<Args>(args)...);
-			c.second(args...);
+			c(std::forward<Args>(args)...);
 		}
 	}
 
 	void operator()(Args... args) const
 	{
-		for (const auto &c : callbacks_)
+		for (const CallableType &c : callbacks_)
 		{
-			// TODO std forward causes use after move?
-			// c(std::forward<Args>(args)...);
-			c.second(args...);
+			c(std::forward<Args>(args)...);
 		}
 	}
 
 	int add(CallableType callback)
 	{
 		const int id = generate_id();
-		callbacks_.emplace(std::make_pair(id, std::move(callback)));
+		callbacks_.emplace_back(std::move(callback));
+		id_to_index_[id] = callbacks_.size() - 1;
 		return id;
 	}
 
-	void remove(int id)
+	void remove(int deleted_id)
 	{
-		callbacks_.erase(id);
+        const auto deleted_it = id_to_index_.find(deleted_id);
+
+		assert(deleted_it != id_to_index_.end());
+
+		const int deleted_index = deleted_it->second;
+		id_to_index_.erase(deleted_it);
+		callbacks_.erase(callbacks_.begin() + deleted_index);
+
+		std::unordered_map<int, int> id_to_new_index;
+        for (const auto& it : id_to_index_)
+        {
+            const int id = it.first;
+            int index = it.second;
+            assert(index != deleted_index);
+            if (index > deleted_index)
+            {
+                --index;
+            }
+            id_to_new_index[id] = index;
+        }
+        id_to_index_ = std::move(id_to_new_index);
 	}
 
 private:
 	int generate_id() const
 	{
 		int id = 0;
-		while (callbacks_.find(id) != callbacks_.end())
+		while (id_to_index_.find(id) != id_to_index_.end())
 		{
 			++id;
 		}
@@ -55,5 +73,6 @@ private:
 	}
 
 private:
-	std::unordered_map<int, CallableType> callbacks_;
+	std::vector<CallableType> callbacks_;
+	std::unordered_map<int, int> id_to_index_;
 };

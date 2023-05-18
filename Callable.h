@@ -23,8 +23,8 @@ public:
 
 	// Functors
 	template<class F>
-	explicit Callable(F &&functor)
-		: f_{std::make_unique<FunctorBased<F>>(std::forward<F>(functor))}
+	explicit Callable(F functor)
+		: f_{std::make_unique<FunctorBased<F>>(std::move(functor))}
 	{}
 
 	Callable(const Callable &other)
@@ -136,8 +136,8 @@ protected:
 	class FunctorBased : public Base
 	{
 	public:
-		explicit FunctorBased(F &&functor)
-			: functor_(std::forward<F>(functor))
+		explicit FunctorBased(F functor)
+			: functor_(std::move(functor))
 		{}
 
 		void operator()(Args... args) override { functor_(std::forward<Args>(args)...); }
