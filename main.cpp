@@ -2,150 +2,153 @@
 #include "Signal.h"
 
 #include <iostream>
+#include <unordered_set>
 
-
-class Connection;
+class IAutoSignal;
 
 class Object
 {
+    template<class... Args>
+	friend class AutoSignal;
+
 public:
 	virtual ~Object();
 
 private:
-	friend class Connection;
-
-private:
-	std::vector<Connection *> connections_;
+    // mutable or other solution??
+	mutable std::unordered_set<IAutoSignal *> connections_;
 };
 
-class Connection
+class IAutoSignal
 {
-public:
-	Connection(Object *to)
-		: to_(to)
-	{
-		to->connections_.push_back(this);
-	}
-
-	virtual ~Connection()
-	{
-		for (int i = 0, count = to_->connections_.size(); i < count; ++i)
-		{
-			if (to_->connections_[i] == this)
-			{
-				// fixme
-				to_->connections_.erase(to_->connections_.begin() + i);
-				break;
-			}
-		}
-	}
-
-	bool isValid() const { return to_ != nullptr; }
-
-private:
 	friend class Object;
 
-protected:
-	Object *to_{};
-};
-
-template<class To, class... Types>
-class ConnectionTemplate : public Connection
-{
 public:
-	ConnectionTemplate(To *obj, Callable<Types...> func)
-		: Connection(obj)
-		, func_(func)
-	{}
+    virtual ~IAutoSignal() = default;
 
-	void operator()(Types... types)
-	{
-		assert(to_ && "Object was deleted!");
-		func_(std::forward<Types>(types)...);
-	}
-
-private:
-	Callable<Types...> func_;
+protected:
+	virtual void on_object_deleted(const Object *obj) = 0;
 };
 
 
 Object::~Object()
 {
-	for (Connection *c : connections_)
+	for (IAutoSignal *c : connections_)
 	{
-		c->to_ = nullptr;
+		c->on_object_deleted(this);
 	}
 }
 
-
 template<class... Args>
-class AutoSignal
+class AutoSignal : IAutoSignal
 {
 public:
-	// Functions
-	int connect(void (*func)(Args...))
+    ~AutoSignal()
     {
-        return signal_.add(Callable<Args...>(func));
+	    for(const auto &it : objects_callbacks_)
+        {
+            const Object *obj = it.first;
+            obj->connections_.erase(this);
+        }
     }
+
+	// Functions
+	int connect(Object *obj, void (*func)(Args...))
+	{
+		const int id = signal_.add(Callable<Args...>(func));
+		on_object_added(obj, id);
+		return id;
+	}
 
 	// Member functions
 	template<class Obj>
 	int connect(Obj *obj, void (Obj::*func)(Args...))
 	{
-        return signal_.add(Callable<Args...>(obj, func));
-    }
+		const int id = signal_.add(Callable<Args...>(obj, func));
+		on_object_added(obj, id);
+		return id;
+	}
 
 	// Const member functions
 	template<class Obj>
 	int connect(const Obj *obj, void (Obj::*func)(Args...) const)
 	{
-        return signal_.add(Callable<Args...>(obj, func));
-    }
+		const int id = signal_.add(Callable<Args...>(obj, func));
+		on_object_added(obj, id);
+		return id;
+	}
 
 	// Functors
 	template<class F>
-	int connect(F functor)
+	int connect(Object *obj, F functor)
 	{
-        return signal_.add(Callable<Args...>(std::move(functor)));
+		const int id = signal_.add(Callable<Args...>(std::move(functor)));
+		on_object_added(obj, id);
+		return id;
+	}
+
+	void operator()(Args... args) { signal_(std::forward<Args>(args)...); }
+
+	void operator()(Args... args) const { signal_(std::forward<Args>(args)...); }
+
+protected:
+    void on_object_added(const Object *obj, int id)
+    {
+        assert(objects_callbacks_[obj].find(id) == objects_callbacks_[obj].end());
+        objects_callbacks_[obj].insert(id);
+        if (obj != nullptr)
+        {
+            obj->connections_.insert(this);
+        }
     }
 
-    void operator()(Args... args)
-	{
-		signal_(std::forward<Args>(args)...);
-	}
-
-	void operator()(Args... args) const
-	{
-		signal_(std::forward<Args>(args)...);
-	}
+	void on_object_deleted(const Object *obj) override
+    {
+        const auto it = objects_callbacks_.find(obj);
+        assert(it != objects_callbacks_.end());
+        const CallbacksIds& ids = it->second;
+        for (const int& id : ids)
+        {
+            signal_.remove(id);
+        }
+        objects_callbacks_.erase(it);
+    }
 
 private:
+	using CallbacksIds = std::unordered_set<int>;
+
+	std::unordered_map<const Object *, CallbacksIds> objects_callbacks_;
 	Signal<Args...> signal_;
 };
 
 void fuf(int a)
 {
-    std::cout << a + 4;
+	std::cout << a + 4;
 }
 
 int main()
 {
-    AutoSignal<int> signal;
+	AutoSignal<int> signal;
 
-    signal.connect([](int a){std::cout << a + 1;});
+	signal.connect(nullptr, [](int a) { std::cout << a + 1; });
 
-    struct Str
-    {
-        void fun1(int a) { std::cout << a + 2; }
-        void fun2(int a) const { std::cout << a + 3; }
-    };
-    Str s;
-    signal.connect(&s, &Str::fun1);
-    signal.connect(&s, &Str::fun2);
+	struct Str : Object
+	{
+		~Str() { std::cout << "destr"; }
+		void fun1(int a) { std::cout << a + 2; }
+		void fun2(int a) const { std::cout << a + 3; }
 
-    signal.connect(&fuf);
+		int val = 55;
+	};
+	auto s = new Str{};
+	signal.connect(s, &Str::fun1);
+	signal.connect(s, &Str::fun2);
 
-    signal(0);
+	signal.connect(nullptr, &fuf);
 
+	signal(0);
 
+	delete s;
+
+	signal(0);
 }
