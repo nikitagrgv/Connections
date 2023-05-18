@@ -128,9 +128,9 @@ void fuf(int a)
 
 int main()
 {
-	AutoSignal<int> signal;
+	auto signal = new AutoSignal<int>;
 
-	signal.connect(nullptr, [](int a) { std::cout << a + 1; });
+	signal->connect(nullptr, [](int a) { std::cout << a + 1; });
 
 	struct Str : Object
 	{
@@ -141,14 +141,20 @@ int main()
 		int val = 55;
 	};
 	auto s = new Str{};
-	signal.connect(s, &Str::fun1);
-	signal.connect(s, &Str::fun2);
+	signal->connect(s, &Str::fun1);
+	signal->connect(s, &Str::fun2);
 
-	signal.connect(nullptr, &fuf);
+	signal->connect(nullptr, &fuf);
 
-	signal(0);
+	signal->operator()(0);
+
+
+	signal->operator()(0);
+
+
+    delete signal;
+
 
 	delete s;
 
-	signal(0);
 }
