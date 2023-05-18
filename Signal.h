@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <vector>
+#include <cassert>
 
 template<class... Args>
 class Signal

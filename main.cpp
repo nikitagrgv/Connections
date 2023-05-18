@@ -1,10 +1,8 @@
-#include <cassert>
-#include <functional>
-#include <iostream>
-#include <vector>
-
 #include "Callable.h"
 #include "Signal.h"
+
+#include <iostream>
+
 
 class Connection;
 
@@ -80,56 +78,74 @@ Object::~Object()
 }
 
 
+template<class... Args>
+class AutoSignal
+{
+public:
+	// Functions
+	int connect(void (*func)(Args...))
+    {
+        return signal_.add(Callable<Args...>(func));
+    }
 
+	// Member functions
+	template<class Obj>
+	int connect(Obj *obj, void (Obj::*func)(Args...))
+	{
+        return signal_.add(Callable<Args...>(obj, func));
+    }
 
+	// Const member functions
+	template<class Obj>
+	int connect(const Obj *obj, void (Obj::*func)(Args...) const)
+	{
+        return signal_.add(Callable<Args...>(obj, func));
+    }
+
+	// Functors
+	template<class F>
+	int connect(F functor)
+	{
+        return signal_.add(Callable<Args...>(std::move(functor)));
+    }
+
+    void operator()(Args... args)
+	{
+		signal_(std::forward<Args>(args)...);
+	}
+
+	void operator()(Args... args) const
+	{
+		signal_(std::forward<Args>(args)...);
+	}
+
+private:
+	Signal<Args...> signal_;
+};
+
+void fuf(int a)
+{
+    std::cout << a + 4;
+}
 
 int main()
 {
-	Signal<int> signal;
+    AutoSignal<int> signal;
 
-    int id1 = signal.add(Callable<int>([](int){std::cout << 1;}));
-    int id2 = signal.add(Callable<int>([](int){std::cout << 2;}));
-    int id3 = signal.add(Callable<int>([](int){std::cout << 3;}));
-    int id4 = signal.add(Callable<int>([](int){std::cout << 4;}));
-    int id5 = signal.add(Callable<int>([](int){std::cout << 5;}));
-    int id6 = signal.add(Callable<int>([](int){std::cout << 6;}));
+    signal.connect([](int a){std::cout << a + 1;});
 
+    struct Str
+    {
+        void fun1(int a) { std::cout << a + 2; }
+        void fun2(int a) const { std::cout << a + 3; }
+    };
+    Str s;
+    signal.connect(&s, &Str::fun1);
+    signal.connect(&s, &Str::fun2);
 
-    signal(0);
-    std::cout<<std::endl;
-
-    signal.remove(id3);
-
-    signal(0);
-    std::cout<<std::endl;
-
-    signal.remove(id5);
+    signal.connect(&fuf);
 
     signal(0);
-    std::cout<<std::endl;
 
-    signal.remove(id2);
 
-    signal(0);
-    std::cout<<std::endl;
-	// {
-	// 	auto lam = [](int a) {
-	// 		std::cout << a << " ";
-	// 	};
-	// 	Callable<int> c(lam);
-	// 	signal.add(c);
-	// 	signal.add(c);
-	// 	signal.add(c);
-	// }
-
-	// {
-	// 	auto lam = [](int a) {
-	// 		std::cout << a+1 << "! ";
-	// 	};
-	// 	Callable<int> c(lam);
-	// 	const int id = signal.add(std::move(c));
-	// 	signal.remove(id);
-	// }
-
-	// signal(5);
 }

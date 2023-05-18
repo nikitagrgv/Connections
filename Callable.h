@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <cassert>
+
 template<class... Args>
 class Callable
 {
